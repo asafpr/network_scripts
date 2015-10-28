@@ -44,6 +44,9 @@ def process_command_line(argv):
     parser.add_option(
         '-n', '--network', default='network_tf_operon.txt',
         help='The network file.')
+    parser.add_option(
+        '--noGE', default=False, action='store_true',
+        help="Don't write edges generated from gene expression data.")
     parser.add_option(      # customized description; put --help last
         '-h', '--help', action='help',
         help='Show this help message and exit.')
@@ -142,7 +145,7 @@ def generate_sigma_net(sigfile, operon_dict):
             outf.writerow([sig, "Sigma-operon", tar])
 
             
-def generate_net(netfile, tf_dict, operon_dict):
+def generate_net(netfile, tf_dict, operon_dict, noGE=False):
     """
     Print a sif sormatted network of operon-operon interactions if the first
     operon contains a gene encoding a TF that regulates the second operon
@@ -157,6 +160,8 @@ def generate_net(netfile, tf_dict, operon_dict):
     outf = csv.writer(sys.stdout, delimiter=' ')
     for line in reader:
         if not line or line[0].startswith('#'):
+            continue
+        if noGE and line[3] == '[GEA]':
             continue
         opname = line[1].split('[')[0]
         tfname = line[0]
@@ -290,7 +295,8 @@ def main(argv=None):
     if settings.added:
         added_network(open(settings.network), operon_dict, tf_dict)
         return 0           
-    generate_net(open(settings.network, 'rb'), tf_dict, operon_dict)
+    generate_net(
+        open(settings.network, 'rb'), tf_dict, operon_dict, noGE=settings.noGE)
     return 0        # success
 
 if __name__ == '__main__':
