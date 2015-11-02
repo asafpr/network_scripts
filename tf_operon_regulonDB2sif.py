@@ -243,12 +243,17 @@ def read_RILseq(rsfile, operon_dict):
             return g
 
     incsv = csv.DictReader(open(rsfile), delimiter='\t')
+    # Remove duplicates using this set
+    written = set()
     for row in incsv:
         g1 = row['RNA1 name']
         g2 = row['RNA2 name']
         op1 = gtoent(g1)
         op2 = gtoent(g2)
-        print "%s RILseq %s"%(op1, op2)
+        if (op1, op2) not in written:
+            print "%s RILseq %s"%(op1, op2)
+            written.add((op1, op2))
+            written.add((op2, op1))
     
 
 
