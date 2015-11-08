@@ -8,6 +8,7 @@ operons to TF use the Confirmation file.
 import sys
 import optparse
 import csv
+from collections import defaultdict
 
 def process_command_line(argv):
     """
@@ -35,6 +36,9 @@ def process_command_line(argv):
     parser.add_option(
         '-R', '--RILseq', action='store_true', default=False,
         help='The input file is RILseq table.')
+    parser.add_option(
+        '--rilseq_EA', default='RILseq_network_interactions_EA.txt',
+        help='Write the number of interactions to this file.')
     parser.add_option(
         '-o', '--operons', default = 'OperonSet.txt',
         help='File containing operons and their genes.')
@@ -212,7 +216,7 @@ def added_network(netfile, operon_dict, tf_dict):
                 continue
 
 
-def read_RILseq(rsfile, operon_dict):
+def read_RILseq(rsfile, operon_dict, na_file=None):
     """
     Read RIL-seq file and write the results as a sif network. Translate genes
     to operons. In the case of AS, IGRs and 3'UTRs, generate new nodes.
@@ -221,6 +225,7 @@ def read_RILseq(rsfile, operon_dict):
     Arguments:
     - `rsfile`: RILseq results table
     - `operon_dict`: A dictionary between gene and operon
+    - `na_file`: Write the number of interactions to this file
     """
     def gtoent(g):
         """
@@ -244,17 +249,22 @@ def read_RILseq(rsfile, operon_dict):
 
     incsv = csv.DictReader(open(rsfile), delimiter='\t')
     # Remove duplicates using this set
-    written = set()
+    written = defaultdict(int)
     for row in incsv:
         g1 = row['RNA1 name']
         g2 = row['RNA2 name']
         op1 = gtoent(g1)
         op2 = gtoent(g2)
-        if (op1, op2) not in written:
+        if (op1, op2) not in written and (op2, op1) not in written:
             print "%s RILseq %s"%(op1, op2)
-            written.add((op1, op2))
-            written.add((op2, op1))
-    
+        if (op2, op1) in written:
+            written[(op2, op1)] += int(row['interactions'])
+        else:
+            written[(op1, op2)] += int(row['interactions'])
+    if na_file:
+        for k, v in written.items():
+            na_file.write("%s (RILseq) %s\t%d\n"%(k[0], k[1], v))
+        
 
 
 def sRNA_network(
@@ -294,7 +304,8 @@ def main(argv=None):
         sRNA_network(open(settings.network, 'rb'), operon_dict)
         return 0
     if settings.RILseq:
-        read_RILseq(settings.network, operon_dict)
+        with open(settings.rilseq_EA, 'w') as rea:
+            read_RILseq(settings.network, operon_dict, rea)
         return 0
     tf_dict = read_conf(open(settings.conformation, 'rb'))
     if settings.added:
